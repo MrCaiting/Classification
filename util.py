@@ -27,7 +27,9 @@ def get_prior(training_label):
     num_label = dict()
 
     with open(training_label, 'r') as train:
-        t_labels = [x.strip('\n') for x in train.readlines()]
+        # The file contains all string type numbers, need to be converted
+
+        t_labels = [int(x.strip('\n')) for x in train.readlines()]
 
     # Iterating through all the labels to fill up the two dicts
     for label in t_labels:
