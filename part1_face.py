@@ -1,18 +1,18 @@
 """The function that contains all the necessary method for Bayes."""
 from math import log
-import numpy as np
+import random
 
-TRAIN_LABEL = 'Data/traininglabels'
-TRAIN_DATA = 'Data/trainingimages'
-TEST_LABEL =  'Data/testlabels'
-TEST_DATA = 'Data/testimages'
-WIDTH = 28
-HEIGHT = 28
+TRAIN_LABEL = 'FaceData/facedatatrainlabels'
+TRAIN_DATA = 'FaceData/facedatatrain'
+TEST_LABEL =  'FaceData/facedatatestlabels'
+TEST_DATA = 'FaceData/facedatatest'
+WIDTH = 60
+HEIGHT = 70
 TOTAL_PIXEL = WIDTH*HEIGHT
-TOTAL_DIG = 10
-TOTAL_IMG = 4000
+TOTAL_DIG = 2
+TOTAL_IMG = 451
 
-K = 0.1
+K = 1
 V = 2
 
 def get_prior(training_label):
@@ -142,7 +142,6 @@ def estimate(samples, p_prob, prior):
     :return: y_: predicted labels of the sample data
     """
     y_ = ['*'] * len(samples)
-    big_dic = dict()
 
     for index, sample in enumerate(samples):
         curr_max_likelihood = None
@@ -157,9 +156,8 @@ def estimate(samples, p_prob, prior):
             if curr_max_likelihood is None or log_likelihood > curr_max_likelihood:
                 curr_max_likelihood = log_likelihood
                 y_[index] = number
-        big_dic[index] = (y_[index], curr_max_likelihood)
 
-    return y_, big_dic
+    return y_
 
 
 def get_accuracy(y, y_, length):
@@ -168,21 +166,6 @@ def get_accuracy(y, y_, length):
         if y[i] == y_[i]:
             correct += 1
     return correct/length
-
-def confusion_matrix(y, y_, length):
-    conf_m = np.zeros((TOTAL_DIG, TOTAL_DIG))
-    for number in range(TOTAL_DIG):
-        number_counter = 0
-        for index in range(length):
-            if y[index] == number:
-                number_counter += 1
-            if y[index] == number and y_[index] == number:
-                conf_m[number][number] += 1
-            elif y[index] == number and y_[index] != number:
-                conf_m[number][y_[index]] += 1
-        conf_m[number] = conf_m[number]* 100/number_counter
-
-    return conf_m
 
 
 # read test labels
@@ -207,55 +190,9 @@ for line in testdata.readlines():
 
 prior = get_prior(TRAIN_LABEL)
 p_prob = train(TRAIN_DATA, TRAIN_LABEL)
-y_, proto = estimate(samples, p_prob, prior)
+y_ = estimate(samples, p_prob, prior)
 accuracy = get_accuracy(y, y_, len(samples))
-conf_m = confusion_matrix(y, y_, len(samples))
-# get prototypical data
-for i in range(len(samples)):
-    correct_value = y[i]
-    predict_value, _ = proto[i]
-    if correct_value != predict_value:
-        proto.pop(i)
-protolist = [0] * 10
-for key, value in proto.items():
-    curr_protolist = []
-    for number in range(TOTAL_DIG):
-        if value[0] == number:
-            curr_protolist.append(value[1])
-    if protolist[value[0]] == 0:
-        protolist[value[0]] = curr_protolist
-    else:
-        protolist[value[0]].extend(curr_protolist)
 
-prototypical_dict = dict()
-for index, likelihoods in enumerate(protolist):
-    max = np.amax(likelihoods)
-    min = np.amin(likelihoods)
-    for key, value in proto.items():
-        if value[1] == max:
-            maxi = key
-        if value[1] == min:
-            mini = key
-    prototypical_dict[index] = (maxi, mini)
-# prepare for visualizing prototypical data
-with open(TEST_DATA, 'r') as test_data:
-    testdata_list = [y.strip('\n') for y in test_data.readlines()]
-
-print(len(testdata_list))
-proto_path = open('prototypical.txt', 'w')
-for key, values in prototypical_dict.items():
-    proto_path.write("Current Number: %s" % key)
-    proto_path.write("\nMaximum Likelihood: \n")
-    for row in range(values[0]* HEIGHT, (values[0]+1)*HEIGHT):
-        proto_path.write("%s\n" % testdata_list[row])
-    proto_path.write("\nMinimum Likelihood: \n")
-    for row in range(values[1]* HEIGHT, (values[1]+1)*HEIGHT):
-        proto_path.write("%s\n" % testdata_list[row])
-    proto_path.write("\n")
-
-np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
 print('Predicted Labels: ', y_)
 print('Accuracy: ', accuracy * 100, '%')
-print('Confusion Matrix: \n', conf_m)
-print('Prototypical: (maximum posterior, minimum posterior)\n', prototypical_dict)
