@@ -253,9 +253,17 @@ for key, values in prototypical_dict.items():
         proto_path.write("%s\n" % testdata_list[row])
     proto_path.write("\n")
 
+# get four most confused pairs
+confusion_values = dict()
+for i in range(conf_m.shape[0]):
+    for j in range(conf_m.shape[1]):
+        if i != j:
+            confusion_values[(i, j)] = conf_m[i][j]
+
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
 print('Predicted Labels: ', y_)
 print('Accuracy: ', accuracy * 100, '%')
 print('Confusion Matrix: \n', conf_m)
+print ("Most Confused Pairs: ", sorted(confusion_values, key=confusion_values.get, reverse=True)[:4])
 print('Prototypical: (maximum posterior, minimum posterior)\n', prototypical_dict)
