@@ -184,6 +184,15 @@ def confusion_matrix(y, y_, length):
 
     return conf_m
 
+# function to calculate odds ratio
+def odds_ratio(pair, p_prob):
+    a, b = pair
+    F_a = p_prob[a]
+    F_b = p_prob[b]
+    odd_ratio = []
+    for index in range(TOTAL_PIXEL):
+        odd_ratio.append(F_a[i]/F_b[i])
+    return odd_ratio
 
 # read test labels
 testlabels = open(TEST_LABEL, 'r')
@@ -241,7 +250,6 @@ for index, likelihoods in enumerate(protolist):
 with open(TEST_DATA, 'r') as test_data:
     testdata_list = [y.strip('\n') for y in test_data.readlines()]
 
-print(len(testdata_list))
 proto_path = open('prototypical.txt', 'w')
 for key, values in prototypical_dict.items():
     proto_path.write("Current Number: %s" % key)
@@ -260,10 +268,14 @@ for i in range(conf_m.shape[0]):
         if i != j:
             confusion_values[(i, j)] = conf_m[i][j]
 
+most_confused_paris = sorted(confusion_values, key=confusion_values.get, reverse=True)[:4]
+for i in range(len(most_confused_paris)):
+    curr_odd_ratio = odds_ratio(most_confused_paris[i], p_prob)
+
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
 print('Predicted Labels: ', y_)
 print('Accuracy: ', accuracy * 100, '%')
 print('Confusion Matrix: \n', conf_m)
-print ("Most Confused Pairs: ", sorted(confusion_values, key=confusion_values.get, reverse=True)[:4])
+print ("Most Confused Pairs: ", most_confused_paris)
 print('Prototypical: (maximum posterior, minimum posterior)\n', prototypical_dict)
