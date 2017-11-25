@@ -182,7 +182,7 @@ def confusion_matrix(y, y_, length):
                 conf_m[number][number] += 1
             elif y[index] == number and y_[index] != number:
                 conf_m[number][y_[index]] += 1
-        conf_m[number] = conf_m[number]* 100/number_counter
+        conf_m[number] = conf_m[number] * 100 / number_counter
 
     return conf_m
 
@@ -194,7 +194,7 @@ def odds_ratio(pair, p_prob):
     F_b = p_prob[b]
     odd_ratio = []
     for index in range(TOTAL_PIXEL):
-        odd_ratio.append(F_a[i]/F_b[i])
+        odd_ratio.append(log(F_a[index]/F_b[index]))
     return odd_ratio
 
 
@@ -338,10 +338,18 @@ for i in range(conf_m.shape[0]):
             confusion_values[(i, j)] = conf_m[i][j]
 
 most_confused_paris = sorted(confusion_values, key=confusion_values.get, reverse=True)[:4]
+
+"""
+# We need to change the p_prob value
+for index in range(TOTAL_DIG):
+    for each in range(TOTAL_PIXEL):
+        p_prob[index][each] = log(p_prob[index][each])
+"""
+# Now we should have all log_likelihood value in this list of probability
 for i in range(len(most_confused_paris)):
     curr_odd_ratio = odds_ratio(most_confused_paris[i], p_prob)
-    if(i == 1):
-        displayHeatMap(p_prob[most_confused_paris[i][0]], p_prob[most_confused_paris[i][1]], curr_odd_ratio)
+    displayHeatMap(p_prob[most_confused_paris[i][0]],
+                   p_prob[most_confused_paris[i][1]], curr_odd_ratio)
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
