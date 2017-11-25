@@ -171,6 +171,7 @@ def get_accuracy(y, y_, length):
             correct += 1
     return correct/length
 
+
 def confusion_matrix(y, y_, length):
     conf_m = np.zeros((TOTAL_DIG, TOTAL_DIG))
     for number in range(TOTAL_DIG):
@@ -194,7 +195,7 @@ def odds_ratio(pair, p_prob):
     F_b = p_prob[b]
     odd_ratio = []
     for index in range(TOTAL_PIXEL):
-        odd_ratio.append(log(F_a[index]/F_b[index]))
+        odd_ratio.append(log(F_b[index]/F_a[index]))
     return odd_ratio
 
 
@@ -234,17 +235,17 @@ def displayHeatMap(firstProb, secondProb, oddRatio):
     figure = plt.figure()
     # get a new subplot image
     first = figure.add_subplot(1, 3, 1)
-    plt.imshow(firstRevised)
+    plt.imshow(firstRevised, cmap='jet', interpolation='nearest', vmin=-4, vmax=0)
     first.set_title("First Digit")
     plt.colorbar()
 
     second = figure.add_subplot(1, 3, 2)
-    plt.imshow(secondRevised)
+    plt.imshow(secondRevised, cmap='jet', interpolation='nearest', vmin=-4, vmax=0)
     second.set_title("Second Digit")
     plt.colorbar()
 
     odd = figure.add_subplot(1, 3, 3)
-    plt.imshow(oddRevised)
+    plt.imshow(oddRevised, cmap='jet', interpolation='nearest', vmin=-3, vmax=1.7)
     odd.set_title("Odd Ratio")
     plt.colorbar()
     plt.show()
@@ -262,6 +263,7 @@ def displayHeatMap(firstProb, secondProb, oddRatio):
     sub[2].imshow(oddRevised)
     plt.show()
     """
+
 
 # read test labels
 testlabels = open(TEST_LABEL, 'r')
@@ -339,17 +341,19 @@ for i in range(conf_m.shape[0]):
 
 most_confused_paris = sorted(confusion_values, key=confusion_values.get, reverse=True)[:4]
 
-"""
+log_prob = dict()
 # We need to change the p_prob value
 for index in range(TOTAL_DIG):
     for each in range(TOTAL_PIXEL):
-        p_prob[index][each] = log(p_prob[index][each])
-"""
+        if index not in log_prob:
+            log_prob[index] = [0]*TOTAL_PIXEL
+        log_prob[index][each] = log(p_prob[index][each])
+
 # Now we should have all log_likelihood value in this list of probability
 for i in range(len(most_confused_paris)):
     curr_odd_ratio = odds_ratio(most_confused_paris[i], p_prob)
-    displayHeatMap(p_prob[most_confused_paris[i][0]],
-                   p_prob[most_confused_paris[i][1]], curr_odd_ratio)
+    displayHeatMap(log_prob[most_confused_paris[i][0]],
+                   log_prob[most_confused_paris[i][1]], curr_odd_ratio)
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
