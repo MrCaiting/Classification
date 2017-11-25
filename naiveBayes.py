@@ -1,10 +1,12 @@
 """The function that contains all the necessary method for Bayes."""
 from math import log
 import numpy as np
+import matplotlib.pyplot as plt
+
 
 TRAIN_LABEL = 'Data/traininglabels'
 TRAIN_DATA = 'Data/trainingimages'
-TEST_LABEL =  'Data/testlabels'
+TEST_LABEL = 'Data/testlabels'
 TEST_DATA = 'Data/testimages'
 WIDTH = 28
 HEIGHT = 28
@@ -184,6 +186,7 @@ def confusion_matrix(y, y_, length):
 
     return conf_m
 
+
 # function to calculate odds ratio
 def odds_ratio(pair, p_prob):
     a, b = pair
@@ -193,6 +196,72 @@ def odds_ratio(pair, p_prob):
     for index in range(TOTAL_PIXEL):
         odd_ratio.append(F_a[i]/F_b[i])
     return odd_ratio
+
+
+def displayHeatMap(firstProb, secondProb, oddRatio):
+    """displayHeatMap.
+
+    DESCRIPTION: The function that we use to display the three different
+        heatmap based on the given three lists
+
+    INPUTS:
+        1.firstProb: A list that holds all the pixel probabilities of the first number
+        2.secondProb: A list that holds all the pixel probabilities of the second number
+        3.oddRatio: A list that holds all the calculated odd ratio on each pixel
+
+    OUTPUT:
+        None, simply display the heatmap
+    """
+    firstRevised = []
+    secondRevised = []
+    oddRevised = []
+
+    for row in range(HEIGHT):
+        tempFirst = []
+        tempSecond = []
+        tempOdd = []
+        for unit in range(WIDTH):
+            tempFirst.append(firstProb[row * WIDTH + unit])
+            tempSecond.append(secondProb[row * WIDTH + unit])
+            tempOdd.append(oddRatio[row * WIDTH + unit])
+        firstRevised.append(tempFirst)
+        secondRevised.append(tempSecond)
+        oddRevised.append(tempOdd)
+
+    # So far, we have reformatted all the list into 2D list
+    # Plot the first graph
+    print("The revised list ", oddRatio)
+    figure = plt.figure()
+    # get a new subplot image
+    first = figure.add_subplot(1, 3, 1)
+    plt.imshow(firstRevised)
+    first.set_title("First Digit")
+    plt.colorbar()
+
+    second = figure.add_subplot(1, 3, 2)
+    plt.imshow(secondRevised)
+    second.set_title("Second Digit")
+    plt.colorbar()
+
+    odd = figure.add_subplot(1, 3, 3)
+    plt.imshow(oddRevised)
+    odd.set_title("Odd Ratio")
+    plt.colorbar()
+    plt.show()
+
+    """
+    f, sub = plt.subplots(1, 3)
+
+    plot1 = sub[0].imshow(firstRevised)
+    plot1.colorbar()
+    # Plot the second graph
+    sub[1].imshow(secondRevised)
+
+
+    # Plot the Odd Ratio Graph
+    sub[2].imshow(oddRevised)
+    plt.show()
+    """
 
 # read test labels
 testlabels = open(TEST_LABEL, 'r')
@@ -254,10 +323,10 @@ proto_path = open('prototypical.txt', 'w')
 for key, values in prototypical_dict.items():
     proto_path.write("Current Number: %s" % key)
     proto_path.write("\nMaximum Likelihood: \n")
-    for row in range(values[0]* HEIGHT, (values[0]+1)*HEIGHT):
+    for row in range(values[0] * HEIGHT, (values[0]+1)*HEIGHT):
         proto_path.write("%s\n" % testdata_list[row])
     proto_path.write("\nMinimum Likelihood: \n")
-    for row in range(values[1]* HEIGHT, (values[1]+1)*HEIGHT):
+    for row in range(values[1] * HEIGHT, (values[1]+1)*HEIGHT):
         proto_path.write("%s\n" % testdata_list[row])
     proto_path.write("\n")
 
@@ -271,11 +340,13 @@ for i in range(conf_m.shape[0]):
 most_confused_paris = sorted(confusion_values, key=confusion_values.get, reverse=True)[:4]
 for i in range(len(most_confused_paris)):
     curr_odd_ratio = odds_ratio(most_confused_paris[i], p_prob)
+    if(i == 1):
+        displayHeatMap(p_prob[most_confused_paris[i][0]], p_prob[most_confused_paris[i][1]], curr_odd_ratio)
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
 print('Predicted Labels: ', y_)
 print('Accuracy: ', accuracy * 100, '%')
 print('Confusion Matrix: \n', conf_m)
-print ("Most Confused Pairs: ", most_confused_paris)
+print("Most Confused Pairs: ", most_confused_paris)
 print('Prototypical: (maximum posterior, minimum posterior)\n', prototypical_dict)
