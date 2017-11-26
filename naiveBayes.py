@@ -231,7 +231,7 @@ def displayHeatMap(firstProb, secondProb, oddRatio):
 
     # So far, we have reformatted all the list into 2D list
     # Plot the first graph
-    print("The revised list ", oddRatio)
+
     figure = plt.figure()
     # get a new subplot image
     first = figure.add_subplot(1, 3, 1)
