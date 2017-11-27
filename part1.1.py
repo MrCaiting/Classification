@@ -1,4 +1,4 @@
-"""The function that contains all the necessary method for Bayes."""
+"""The function that contains all the necessary method for Bayes in Pt. 1.1."""
 from math import log
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ WIDTH = 28
 HEIGHT = 28
 TOTAL_PIXEL = WIDTH*HEIGHT
 TOTAL_DIG = 10
-TOTAL_IMG = 4000
+TOTAL_IMG = 5000
 
 K = 0.1
 V = 2
@@ -124,7 +124,7 @@ def train(training_data, training_label):
     for num in range(TOTAL_DIG):
 
         this_l_count = label_counts[num]
-        # print("label count", label_counts[0])
+
         # initialize the probability term in the dict
         p_prob[num] = [0] * TOTAL_PIXEL
         for pix in range(TOTAL_PIXEL):
@@ -148,7 +148,7 @@ def estimate(samples, p_prob, prior):
 
     for index, sample in enumerate(samples):
         curr_max_likelihood = None
-        for number in range(0,TOTAL_DIG):
+        for number in range(0, TOTAL_DIG):
             log_likelihood = log(prior[number])
             for pixel in range(TOTAL_PIXEL):
                 curr_pixel = sample[pixel]

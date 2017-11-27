@@ -1,8 +1,7 @@
-"""The function that contains all the necessary method for Bayes."""
-from math import log
+"""The function that contains all the necessary method for Bayes in Pt. 1.2."""
+from math import log, pow
 import numpy as np
-import matplotlib.pyplot as plt
-
+import time
 
 TRAIN_LABEL = 'Data/traininglabels'
 TRAIN_DATA = 'Data/trainingimages'
@@ -12,10 +11,16 @@ WIDTH = 28
 HEIGHT = 28
 TOTAL_PIXEL = WIDTH*HEIGHT
 TOTAL_DIG = 10
-TOTAL_IMG = 4000
+TOTAL_IMG = 5000
 
+
+
+# Frequently changed global variable
+SIZE_0 = 3
+SIZE_1 = 3
+MODE = ["disjoint", "overlapping"]
 K = 0.1
-V = 2
+V = pow(2, SIZE_0*SIZE_1)
 
 def get_prior(training_label):
     """get_prior.
@@ -61,7 +66,7 @@ def get_prior(training_label):
     return prior
 
 
-def train(training_data, training_label):
+def train(training_data, training_label, size0, size1, patch_mode):
     """train.
 
     DESCRIPTION: The function is used to read all the training data and calculate
@@ -70,24 +75,40 @@ def train(training_data, training_label):
     INPUTS:
         1. training_data: the file path of the training data
         2. training_label: the file path of the training label
-
+        3. patch_mode: tell the method which grouping method we'd lie to use
     OUTPUT:
         p_prob: a dictionary that holds all the probability value of each
             pixel of each number
+        total_group: the total grouping amount that we have under this patching method
     """
+    # Calculate the total value based on patch_mode
+    if (patch_mode == "disjoint"):
+        total = int(WIDTH*HEIGHT / (size0*size1))
+    elif (patch_mode == "overlapping"):
+        total = (WIDTH - size1 + 1)*(HEIGHT - size0 + 1)
+    else:
+        print("Invalid Patching Method Value!")
+        return False
+
     # dictionary that holds the count of any pixel
     p_counts = dict()
-    # dictionary that holds all the probability
-    p_prob = dict()
     # dictionary that holds all the count of label
     label_counts = dict()
 
+    #######################################
+    # dictionary that holds all the probability
+    p_prob = dict()
+    #######################################
+
+    # Get all the training labels as a list
     with open(training_label, 'r') as train_l:
         t_labels = [int(x.strip('\n')) for x in train_l.readlines()]
 
+    # Get all the training data as a list
     with open(training_data, 'r') as train_d:
         image = [y.strip('\n') for y in train_d.readlines()]
 
+    reformat_start = time.clock()
     for index in range(TOTAL_IMG):
         # starting reading every single picture
         this_image = []
@@ -103,58 +124,121 @@ def train(training_data, training_label):
 
         # if this number we have not seen before, we need to initialize its dict term
         if t_labels[index] not in p_counts:
-            p_counts[t_labels[index]] = [0] * TOTAL_PIXEL
+            p_counts[t_labels[index]] = [0] * total
 
-        # create a seperate counter to help us iterate through the image
-        temp_count = 0
-        for line in this_image:
-            for char in line:
-                # if it is a hashtag, we add one to it
+        # Starting converting this_image[] into list of 0 or 1
+        for row, line in enumerate(this_image):
+            templine = []
+
+            for col, char in enumerate(line):
+                # if it is a hashtag, we add 1 to it
                 if char == "#":
-                    p_counts[t_labels[index]][temp_count] += 1
-                # if it is a plus sign, which denote the border, we assign 0.5
-                elif char == "+":
-                    p_counts[t_labels[index]][temp_count] += 1
-                # otherwise, we do move on without doing anything
-                else:
-                    p_counts[t_labels[index]][temp_count] += 0
-                temp_count += 1
+                    templine.append(1)
 
+                # if it is a plus sign, which denote the border, we still give 1
+                elif char == "+":
+                    templine.append(1)
+
+                # otherwise, we assaign 0
+                else:
+                    templine.append(0)
+            this_image[row] = templine
+
+        """
+        So far, we have a list of the current image filled with either 0 or 1
+          Need call reformatting function to group pixels in tuple as desired
+        """
+        # Chose patching function as requested
+        if (patch_mode == "disjoint"):
+            G_temp = reformat_disjoint(size0, size1, this_image)
+        elif (patch_mode == "overlapping"):
+            G_temp = reformat_overlap(size0, size1, this_image)
+        else:
+            print("How the heck did you get here??")
+            return False
+        ################################################
+        # Testing Line:
+        if (len(G_temp) != total):
+            print("We have unmatched G_temp length!!")
+            return False
+        ################################################
+        """ The old training counting method
+        for sub_index, g_ij in enumerate(G_temp):
+            count_one = 0
+            temp_total = len(g_ij)
+            for element in g_ij:
+                if (element == 1):
+                    count_one += 1/temp_total
+                else:
+                    count_one += 0
+            # Update the count in the p_counts dictionary
+            p_counts[t_labels[index]][sub_index] += count_one
+        """
+        for sub_index, g_ij in enumerate(G_temp):
+            # Check if we already have a sub dictionary here
+            if p_counts[t_labels[index]][sub_index] == 0:
+                #group_dict = dict()
+                #group_dict[g_ij] = 1
+                p_counts[t_labels[index]][sub_index] = {g_ij: 1}
+
+            elif g_ij not in p_counts[t_labels[index]][sub_index]:
+                p_counts[t_labels[index]][sub_index][g_ij] = 1
+
+            # If not, simply updating the dictionary
+            else:
+                p_counts[t_labels[index]][sub_index][g_ij] += 1
+
+    reformat_time = time.clock() - reformat_start
+    print("Reformatting Time: ", reformat_time)
+
+    train_start = time.clock()
     # have all the information, we start calculating the probability
     for num in range(TOTAL_DIG):
 
         this_l_count = label_counts[num]
-        # print("label count", label_counts[0])
+
         # initialize the probability term in the dict
-        p_prob[num] = [0] * TOTAL_PIXEL
-        for pix in range(TOTAL_PIXEL):
-            n_pix = p_counts[num][pix]
-            p_pix = (n_pix + K) / (this_l_count + K*V)
-            p_prob[num][pix] = p_pix
+        p_prob[num] = [dict() for x in range(total)]
+        for pix in range(total):
+            n_pix_dict = p_counts[num][pix]
 
-    return p_prob
+            for key, value in n_pix_dict.items():
+                p_pix = (value + K) / (this_l_count + K*V)
+                p_prob[num][pix][key] = p_pix
+
+    train_time = time.clock() - train_start
+    print("Training Time: ", train_time)
+    print(len(p_prob[0]))
+    return p_prob, label_counts, total
 
 
-def estimate(samples, p_prob, prior):
+def estimate(samples, p_prob, prior, label_counts, total):
     """estimate.
-    Predict label of the input samples using MAP decision rule.
-    :param sample: samples in test data
-            p_prob: pixel probabilities matrix
-            prior: prior values
+
+    DESCRIPTION: Predict label of the input samples using MAP decision rule.
+    :param
+        1. sample: samples in test data
+        2. p_prob: pixel probabilities matrix
+        3. prior: prior values
     :return: y_: predicted labels of the sample data
     """
     y_ = ['*'] * len(samples)
     big_dic = dict()
-
+    print('probability Dict: ', p_prob)
     for index, sample in enumerate(samples):
         curr_max_likelihood = None
-        for number in range(0,TOTAL_DIG):
+
+        for number in range(0, TOTAL_DIG):
             log_likelihood = log(prior[number])
-            for pixel in range(TOTAL_PIXEL):
-                curr_pixel = sample[pixel]
-                curr_prob = p_prob[number][pixel]
-                # print(curr_prob, number, pixel)
-                log_likelihood += curr_pixel * log(curr_prob) + (1-curr_pixel) * log(1-curr_prob)
+
+            for pixel in range(total):
+                curr_pixel = sample[pixel]  # a tuple
+                if (curr_pixel in p_prob[number][pixel]):
+                    curr_prob = p_prob[number][pixel][curr_pixel]
+                else:
+                    curr_prob = K / (label_counts[number] + K*V)
+                # log_likelihood += temp * log(curr_prob) + (1-temp) * log(1-curr_prob)
+                log_likelihood += log(curr_prob)
                 # update the max log likelihood and the predicted label for current sample
             if curr_max_likelihood is None or log_likelihood > curr_max_likelihood:
                 curr_max_likelihood = log_likelihood
@@ -170,99 +254,6 @@ def get_accuracy(y, y_, length):
         if y[i] == y_[i]:
             correct += 1
     return correct/length
-
-
-def confusion_matrix(y, y_, length):
-    conf_m = np.zeros((TOTAL_DIG, TOTAL_DIG))
-    for number in range(TOTAL_DIG):
-        number_counter = 0
-        for index in range(length):
-            if y[index] == number:
-                number_counter += 1
-            if y[index] == number and y_[index] == number:
-                conf_m[number][number] += 1
-            elif y[index] == number and y_[index] != number:
-                conf_m[number][y_[index]] += 1
-        conf_m[number] = conf_m[number] * 100 / number_counter
-
-    return conf_m
-
-
-# function to calculate odds ratio
-def odds_ratio(pair, p_prob):
-    a, b = pair
-    F_a = p_prob[a]
-    F_b = p_prob[b]
-    odd_ratio = []
-    for index in range(TOTAL_PIXEL):
-        odd_ratio.append(log(F_b[index]/F_a[index]))
-    return odd_ratio
-
-
-def displayHeatMap(firstProb, secondProb, oddRatio):
-    """displayHeatMap.
-
-    DESCRIPTION: The function that we use to display the three different
-        heatmap based on the given three lists
-
-    INPUTS:
-        1.firstProb: A list that holds all the pixel probabilities of the first number
-        2.secondProb: A list that holds all the pixel probabilities of the second number
-        3.oddRatio: A list that holds all the calculated odd ratio on each pixel
-
-    OUTPUT:
-        None, simply display the heatmap
-    """
-    firstRevised = []
-    secondRevised = []
-    oddRevised = []
-
-    for row in range(HEIGHT):
-        tempFirst = []
-        tempSecond = []
-        tempOdd = []
-        for unit in range(WIDTH):
-            tempFirst.append(firstProb[row * WIDTH + unit])
-            tempSecond.append(secondProb[row * WIDTH + unit])
-            tempOdd.append(oddRatio[row * WIDTH + unit])
-        firstRevised.append(tempFirst)
-        secondRevised.append(tempSecond)
-        oddRevised.append(tempOdd)
-
-    # So far, we have reformatted all the list into 2D list
-    # Plot the first graph
-
-    figure = plt.figure()
-    # get a new subplot image
-    first = figure.add_subplot(1, 3, 1)
-    plt.imshow(firstRevised, cmap='jet', interpolation='nearest', vmin=-4, vmax=0)
-    first.set_title("First Digit")
-    plt.colorbar()
-
-    second = figure.add_subplot(1, 3, 2)
-    plt.imshow(secondRevised, cmap='jet', interpolation='nearest', vmin=-4, vmax=0)
-    second.set_title("Second Digit")
-    plt.colorbar()
-
-    odd = figure.add_subplot(1, 3, 3)
-    plt.imshow(oddRevised, cmap='jet', interpolation='nearest', vmin=-3, vmax=1.7)
-    odd.set_title("Odd Ratio")
-    plt.colorbar()
-    plt.show()
-
-    """
-    f, sub = plt.subplots(1, 3)
-
-    plot1 = sub[0].imshow(firstRevised)
-    plot1.colorbar()
-    # Plot the second graph
-    sub[1].imshow(secondRevised)
-
-
-    # Plot the Odd Ratio Graph
-    sub[2].imshow(oddRevised)
-    plt.show()
-    """
 
 
 def reformat_disjoint(size0, size1, inlist):
@@ -284,6 +275,7 @@ def reformat_disjoint(size0, size1, inlist):
 
     return G_all
 
+
 def disjoint_helper(size0, size1, inlist, wid, hei):
     if wid % size1 == 0 and hei % size0 == 0:
         G_all = ['*'] * int((wid*hei)/(size0*size1))
@@ -302,6 +294,8 @@ def disjoint_helper(size0, size1, inlist, wid, hei):
                 G_all[int(row_index*wid/size1) + col_index] += curr_tuple
 
     return G_all
+
+
 def row_expand_helper(line, size1, row, inlist):
     curr_expand_row = []
     for col, char in enumerate(line):
@@ -319,112 +313,63 @@ def reformat_overlap(size0, size1, inlist):
             for j in range(size0):
                 expanded_list.append(row_expand_helper(inlist[row+j], size1, row+j, inlist))
 
-    print("EXPAND LIST: ", expanded_list)
     G_all = disjoint_helper(size0, size1, expanded_list, len(expanded_list[0]), len(expanded_list))
 
     return G_all
 
 
+def read_test_data(size0, size1, mode):
+    testdata = open(TEST_DATA, 'r')
+    samples = []
+    curr_list = []
+    for line in testdata.readlines():
+        for char in line:
+            if char == ' ':
+                curr_list.append(0)
+            elif char == '+':
+                curr_list.append(1)
+            elif char == '#':
+                curr_list.append(1)
+
+        if len(curr_list) == TOTAL_PIXEL:
+            curr_list = np.resize(curr_list, (WIDTH, HEIGHT))
+            if (mode == "disjoint"):
+                samples.append(reformat_disjoint(size0, size1, curr_list))
+                curr_list = []
+            elif (mode == "overlapping"):
+                samples.append(reformat_overlap(size0, size1, curr_list))
+                curr_list = []
+            else:
+                print("Wrong Method!")
+                return False
+    return samples
+
+####################################################
 # main
 # read test labels
+
+
+mode = MODE[1]
+print('The Current Method: ', mode)
+print('Patching Size: ', SIZE_0, ' x ', SIZE_1)
+
 testlabels = open(TEST_LABEL, 'r')
 y = [int(x.strip('\n')) for x in testlabels.readlines()]
+
 # read test data
-testdata = open(TEST_DATA, 'r')
-samples = []
-curr_list = []
-for line in testdata.readlines():
-    for char in line:
-        if char == ' ':
-            curr_list.append(0)
-        elif char == '+':
-            curr_list.append(1)
-        elif char == '#':
-            curr_list.append(1)
-
-    if len(curr_list) == TOTAL_PIXEL:
-        samples.append(curr_list)
-        curr_list = []
-
+samples = read_test_data(SIZE_0, SIZE_1, mode)
+# get prior
 prior = get_prior(TRAIN_LABEL)
-p_prob = train(TRAIN_DATA, TRAIN_LABEL)
-y_, proto = estimate(samples, p_prob, prior)
+
+# train data
+p_prob, label_counts, total = train(TRAIN_DATA, TRAIN_LABEL, SIZE_0, SIZE_1, mode)
+
+# start estimating
+y_, _ = estimate(samples, p_prob, prior, label_counts, total)
 accuracy = get_accuracy(y, y_, len(samples))
-conf_m = confusion_matrix(y, y_, len(samples))
-# get prototypical data
-for i in range(len(samples)):
-    correct_value = y[i]
-    predict_value, _ = proto[i]
-    if correct_value != predict_value:
-        proto.pop(i)
-protolist = [0] * 10
-for key, value in proto.items():
-    curr_protolist = []
-    for number in range(TOTAL_DIG):
-        if value[0] == number:
-            curr_protolist.append(value[1])
-    if protolist[value[0]] == 0:
-        protolist[value[0]] = curr_protolist
-    else:
-        protolist[value[0]].extend(curr_protolist)
 
-prototypical_dict = dict()
-for index, likelihoods in enumerate(protolist):
-    max = np.amax(likelihoods)
-    min = np.amin(likelihoods)
-    for key, value in proto.items():
-        if value[1] == max:
-            maxi = key
-        if value[1] == min:
-            mini = key
-    prototypical_dict[index] = (maxi, mini)
-# prepare for visualizing prototypical data
-with open(TEST_DATA, 'r') as test_data:
-    testdata_list = [y.strip('\n') for y in test_data.readlines()]
-
-proto_path = open('prototypical.txt', 'w')
-for key, values in prototypical_dict.items():
-    proto_path.write("Current Number: %s" % key)
-    proto_path.write("\nMaximum Likelihood: \n")
-    for row in range(values[0] * HEIGHT, (values[0]+1)*HEIGHT):
-        proto_path.write("%s\n" % testdata_list[row])
-    proto_path.write("\nMinimum Likelihood: \n")
-    for row in range(values[1] * HEIGHT, (values[1]+1)*HEIGHT):
-        proto_path.write("%s\n" % testdata_list[row])
-    proto_path.write("\n")
-
-# get four most confused pairs
-confusion_values = dict()
-for i in range(conf_m.shape[0]):
-    for j in range(conf_m.shape[1]):
-        if i != j:
-            confusion_values[(i, j)] = conf_m[i][j]
-
-most_confused_paris = sorted(confusion_values, key=confusion_values.get, reverse=True)[:4]
-
-log_prob = dict()
-# We need to change the p_prob value
-for index in range(TOTAL_DIG):
-    for each in range(TOTAL_PIXEL):
-        if index not in log_prob:
-            log_prob[index] = [0]*TOTAL_PIXEL
-        log_prob[index][each] = log(p_prob[index][each])
-
-# Now we should have all log_likelihood value in this list of probability
-"""
-for i in range(len(most_confused_paris)):
-    curr_odd_ratio = odds_ratio(most_confused_paris[i], p_prob)
-    displayHeatMap(log_prob[most_confused_paris[i][0]],
-                   log_prob[most_confused_paris[i][1]], curr_odd_ratio)
-"""
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
 print('Predicted Labels: ', y_)
 print('Accuracy: ', accuracy * 100, '%')
-print('Confusion Matrix: \n', conf_m)
-print("Most Confused Pairs: ", most_confused_paris)
-print('Prototypical: (maximum posterior, minimum posterior)\n', prototypical_dict)
-
-inlist = [[1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15],[16,17,18,19,20]]
-print("DEBUG:", reformat_overlap(2,3,inlist))
