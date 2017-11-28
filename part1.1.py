@@ -2,7 +2,7 @@
 from math import log
 import numpy as np
 import matplotlib.pyplot as plt
-
+import time
 
 TRAIN_LABEL = 'Data/traininglabels'
 TRAIN_DATA = 'Data/trainingimages'
@@ -119,7 +119,7 @@ def train(training_data, training_label):
                 else:
                     p_counts[t_labels[index]][temp_count] += 0
                 temp_count += 1
-
+    start_train = time.clock()
     # have all the information, we start calculating the probability
     for num in range(TOTAL_DIG):
 
@@ -132,7 +132,7 @@ def train(training_data, training_label):
             p_pix = (n_pix + K) / (this_l_count + K*V)
             p_prob[num][pix] = p_pix
 
-    return p_prob
+    return p_prob, (time.clock() - start_train)
 
 
 def estimate(samples, p_prob, prior):
@@ -145,7 +145,7 @@ def estimate(samples, p_prob, prior):
     """
     y_ = ['*'] * len(samples)
     big_dic = dict()
-
+    start_test = time.clock()
     for index, sample in enumerate(samples):
         curr_max_likelihood = None
         for number in range(0, TOTAL_DIG):
@@ -161,7 +161,7 @@ def estimate(samples, p_prob, prior):
                 y_[index] = number
         big_dic[index] = (y_[index], curr_max_likelihood)
 
-    return y_, big_dic
+    return y_, big_dic, (time.clock() - start_test)
 
 
 def get_accuracy(y, y_, length):
@@ -286,8 +286,8 @@ for line in testdata.readlines():
         curr_list = []
 
 prior = get_prior(TRAIN_LABEL)
-p_prob = train(TRAIN_DATA, TRAIN_LABEL)
-y_, proto = estimate(samples, p_prob, prior)
+p_prob, train_time = train(TRAIN_DATA, TRAIN_LABEL)
+y_, proto, test_time = estimate(samples, p_prob, prior)
 accuracy = get_accuracy(y, y_, len(samples))
 conf_m = confusion_matrix(y, y_, len(samples))
 # get prototypical data
@@ -358,6 +358,8 @@ for i in range(len(most_confused_paris)):
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 print('Test Labels: ', y)
 print('Predicted Labels: ', y_)
+print('Training Time: ', train_time, ' seconds')
+print('Testing Time: ', test_time, ' seconds')
 print('Accuracy: ', accuracy * 100, '%')
 print('Confusion Matrix: \n', conf_m)
 print("Most Confused Pairs: ", most_confused_paris)

@@ -17,10 +17,12 @@ TOTAL_IMG = 5000
 
 # Frequently changed global variable
 SIZE_0 = 3
-SIZE_1 = 3
+SIZE_1 = 2
 MODE = ["disjoint", "overlapping"]
 K = 0.1
 V = pow(2, SIZE_0*SIZE_1)
+mode = MODE[1]
+
 
 def get_prior(training_label):
     """get_prior.
@@ -189,7 +191,7 @@ def train(training_data, training_label, size0, size1, patch_mode):
                 p_counts[t_labels[index]][sub_index][g_ij] += 1
 
     reformat_time = time.clock() - reformat_start
-    print("Reformatting Time: ", reformat_time)
+    print("Reformatting Time: ", reformat_time, " seconds")
 
     train_start = time.clock()
     # have all the information, we start calculating the probability
@@ -207,8 +209,8 @@ def train(training_data, training_label, size0, size1, patch_mode):
                 p_prob[num][pix][key] = p_pix
 
     train_time = time.clock() - train_start
-    print("Training Time: ", train_time)
-    print(len(p_prob[0]))
+    print("Training Time: ", train_time, " seconds")
+    # print(len(p_prob[0]))
     return p_prob, label_counts, total
 
 
@@ -224,7 +226,8 @@ def estimate(samples, p_prob, prior, label_counts, total):
     """
     y_ = ['*'] * len(samples)
     big_dic = dict()
-    print('probability Dict: ', p_prob)
+    # print('probability Dict: ', p_prob)
+    test_start = time.clock()
     for index, sample in enumerate(samples):
         curr_max_likelihood = None
 
@@ -244,7 +247,7 @@ def estimate(samples, p_prob, prior, label_counts, total):
                 curr_max_likelihood = log_likelihood
                 y_[index] = number
         big_dic[index] = (y_[index], curr_max_likelihood)
-
+    print("Testing Time: ", time.clock() - test_start, " seconds")
     return y_, big_dic
 
 
@@ -318,7 +321,7 @@ def reformat_overlap(size0, size1, inlist):
     return G_all
 
 
-def read_test_data(size0, size1, mode):
+def read_test_data(size0, size1, pmode):
     testdata = open(TEST_DATA, 'r')
     samples = []
     curr_list = []
@@ -332,11 +335,11 @@ def read_test_data(size0, size1, mode):
                 curr_list.append(1)
 
         if len(curr_list) == TOTAL_PIXEL:
-            curr_list = np.resize(curr_list, (WIDTH, HEIGHT))
-            if (mode == "disjoint"):
+            curr_list = np.resize(curr_list, (HEIGHT, WIDTH))
+            if (pmode == "disjoint"):
                 samples.append(reformat_disjoint(size0, size1, curr_list))
                 curr_list = []
-            elif (mode == "overlapping"):
+            elif (pmode == "overlapping"):
                 samples.append(reformat_overlap(size0, size1, curr_list))
                 curr_list = []
             else:
@@ -349,7 +352,6 @@ def read_test_data(size0, size1, mode):
 # read test labels
 
 
-mode = MODE[1]
 print('The Current Method: ', mode)
 print('Patching Size: ', SIZE_0, ' x ', SIZE_1)
 
@@ -370,6 +372,6 @@ accuracy = get_accuracy(y, y_, len(samples))
 
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
+print('Accuracy: ', accuracy * 100, '%')
 print('Test Labels: ', y)
 print('Predicted Labels: ', y_)
-print('Accuracy: ', accuracy * 100, '%')
