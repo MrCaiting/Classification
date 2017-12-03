@@ -154,7 +154,8 @@ def estimate(samples, p_prob, prior):
                 curr_pixel = sample[pixel]
                 curr_prob = p_prob[number][pixel]
                 # print(curr_prob, number, pixel)
-                log_likelihood += curr_pixel * log(curr_prob) + (1-curr_pixel) * log(1-curr_prob)
+                #log_likelihood += curr_pixel * log(curr_prob) + (1-curr_pixel) * log(1-curr_prob)
+                log_likelihood += curr_pixel *log(curr_prob)
                 # update the max log likelihood and the predicted label for current sample
             if curr_max_likelihood is None or log_likelihood > curr_max_likelihood:
                 curr_max_likelihood = log_likelihood
